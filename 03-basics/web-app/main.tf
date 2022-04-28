@@ -1,8 +1,12 @@
+variable "domain_name" {
+  default = "philippinedev.net"
+}
+
 terraform {
   # Assumes s3 bucket and dynamo DB table already set up
   # See /code/03-basics/aws-backend
   backend "s3" {
-    bucket         = "devops-directive-tf-state"
+    bucket         = "tfraymond-devops-directive-tf-state"
     key            = "03-basics/web-app/terraform.tfstate"
     region         = "us-east-1"
     dynamodb_table = "terraform-state-locking"
@@ -19,6 +23,38 @@ terraform {
 
 provider "aws" {
   region = "us-east-1"
+}
+
+resource "aws_s3_bucket" "terraform_state" {
+  bucket        = "tfraymond-devops-directive-tf-state" # REPLACE WITH YOUR BUCKET NAME
+  force_destroy = true
+}
+
+resource "aws_s3_bucket_versioning" "versioning_example" {
+  bucket = aws_s3_bucket.terraform_state.id
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
+
+resource "aws_s3_bucket_server_side_encryption_configuration" "a" {
+  bucket = aws_s3_bucket.terraform_state.bucket
+
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = "AES256"
+    }
+  }
+}
+
+data "aws_dynamodb_table" "terraform_locks" {
+  name         = "terraform-state-locking"
+  # billing_mode = "PAY_PER_REQUEST"
+  # hash_key     = "LockID"
+  # attribute {
+  #   name = "LockID"
+  #   type = "S"
+  # }
 }
 
 resource "aws_instance" "instance_1" {
@@ -43,18 +79,22 @@ resource "aws_instance" "instance_2" {
               EOF
 }
 
-resource "aws_s3_bucket" "bucket" {
-  bucket        = "devops-directive-web-app-data"
+resource "aws_s3_bucket" "webdata" {
+  bucket        = "tfraymond-devops-directive-web-app-data"
   force_destroy = true
-  versioning {
-    enabled = true
+}
+resource "aws_s3_bucket_versioning" "a" {
+  bucket = aws_s3_bucket.webdata.id
+  versioning_configuration {
+    status = "Enabled"
   }
+}
+resource "aws_s3_bucket_server_side_encryption_configuration" "b" {
+  bucket = aws_s3_bucket.webdata.bucket
 
-  server_side_encryption_configuration {
-    rule {
-      apply_server_side_encryption_by_default {
-        sse_algorithm = "AES256"
-      }
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = "AES256"
     }
   }
 }
@@ -145,7 +185,6 @@ resource "aws_lb_listener_rule" "instances" {
   }
 }
 
-
 resource "aws_security_group" "alb" {
   name = "alb-security-group"
 }
@@ -178,16 +217,15 @@ resource "aws_lb" "load_balancer" {
   load_balancer_type = "application"
   subnets            = data.aws_subnet_ids.default_subnet.ids
   security_groups    = [aws_security_group.alb.id]
-
 }
 
 resource "aws_route53_zone" "primary" {
-  name = "devopsdeployed.com"
+  name = var.domain_name
 }
 
 resource "aws_route53_record" "root" {
   zone_id = aws_route53_zone.primary.zone_id
-  name    = "devopsdeployed.com"
+  name    = var.domain_name
   type    = "A"
 
   alias {
@@ -201,9 +239,9 @@ resource "aws_db_instance" "db_instance" {
   allocated_storage   = 20
   storage_type        = "standard"
   engine              = "postgres"
-  engine_version      = "12.5"
-  instance_class      = "db.t2.micro"
-  name                = "mydb"
+  # engine_version      = "14.1"
+  instance_class      = "db.t3.micro"
+  name                = "tfraymond_mydb"
   username            = "foo"
   password            = "foobarbaz"
   skip_final_snapshot = true
