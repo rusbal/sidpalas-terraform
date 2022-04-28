@@ -5,13 +5,13 @@ variable "domain_name" {
 terraform {
   # Assumes s3 bucket and dynamo DB table already set up
   # See /code/03-basics/aws-backend
-  backend "s3" {
-    bucket         = "tfraymond-devops-directive-tf-state"
-    key            = "03-basics/web-app/terraform.tfstate"
-    region         = "us-east-1"
-    dynamodb_table = "terraform-state-locking"
-    encrypt        = true
-  }
+  # backend "s3" {
+  #   bucket         = "tfraymond-devops-directive-tf-state"
+  #   key            = "03-basics/web-app/terraform.tfstate"
+  #   region         = "us-east-1"
+  #   dynamodb_table = "terraform-state-locking"
+  #   encrypt        = true
+  # }
 
   required_providers {
     aws = {
@@ -61,7 +61,7 @@ resource "aws_instance" "ec2_1" {
   ami               = "ami-011899242bb902164" # Ubuntu 20.04 LTS // us-east-1
   availability_zone = "us-east-1a"
   instance_type     = "t2.micro"
-  security_groups   = [aws_security_group.instances.name]
+  security_groups   = [aws_security_group.sec_group.name]
   user_data         = <<-EOF
               #!/bin/bash
               echo "Hello, World 1" > index.html
@@ -76,7 +76,7 @@ resource "aws_instance" "ec2_2" {
   ami               = "ami-011899242bb902164" # Ubuntu 20.04 LTS // us-east-1
   availability_zone = "us-east-1a"
   instance_type     = "t2.micro"
-  security_groups   = [aws_security_group.instances.name]
+  security_groups   = [aws_security_group.sec_group.name]
   user_data         = <<-EOF
               #!/bin/bash
               echo "Hello, World 2" > index.html
@@ -115,13 +115,13 @@ data "aws_subnet_ids" "default_subnet" {
   vpc_id = data.aws_vpc.default_vpc.id
 }
 
-resource "aws_security_group" "instances" {
+resource "aws_security_group" "sec_group" {
   name = "instance-security-group"
 }
 
 resource "aws_security_group_rule" "allow_http_inbound" {
   type              = "ingress"
-  security_group_id = aws_security_group.instances.id
+  security_group_id = aws_security_group.sec_group.id
 
   from_port   = 8080
   to_port     = 8080
@@ -148,7 +148,7 @@ resource "aws_lb_listener" "http" {
   }
 }
 
-resource "aws_lb_target_group" "instances" {
+resource "aws_lb_target_group" "lb_target" {
   name     = "example-target-group"
   port     = 8080
   protocol = "HTTP"
@@ -166,18 +166,18 @@ resource "aws_lb_target_group" "instances" {
 }
 
 resource "aws_lb_target_group_attachment" "instance_1" {
-  target_group_arn = aws_lb_target_group.instances.arn
+  target_group_arn = aws_lb_target_group.lb_target.arn
   target_id        = aws_instance.ec2_1.id
   port             = 8080
 }
 
 resource "aws_lb_target_group_attachment" "instance_2" {
-  target_group_arn = aws_lb_target_group.instances.arn
+  target_group_arn = aws_lb_target_group.lb_target.arn
   target_id        = aws_instance.ec2_2.id
   port             = 8080
 }
 
-resource "aws_lb_listener_rule" "instances" {
+resource "aws_lb_listener_rule" "a" {
   listener_arn = aws_lb_listener.http.arn
   priority     = 100
 
@@ -189,7 +189,7 @@ resource "aws_lb_listener_rule" "instances" {
 
   action {
     type             = "forward"
-    target_group_arn = aws_lb_target_group.instances.arn
+    target_group_arn = aws_lb_target_group.lb_target.arn
   }
 }
 
@@ -216,9 +216,7 @@ resource "aws_security_group_rule" "allow_alb_all_outbound" {
   to_port     = 0
   protocol    = "-1"
   cidr_blocks = ["0.0.0.0/0"]
-
 }
-
 
 resource "aws_lb" "load_balancer" {
   name               = "web-app-lb"
