@@ -48,7 +48,7 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "a" {
 }
 
 data "aws_dynamodb_table" "terraform_locks" {
-  name         = "terraform-state-locking"
+  name = "terraform-state-locking"
   # billing_mode = "PAY_PER_REQUEST"
   # hash_key     = "LockID"
   # attribute {
@@ -57,26 +57,34 @@ data "aws_dynamodb_table" "terraform_locks" {
   # }
 }
 
-resource "aws_instance" "instance_1" {
-  ami             = "ami-011899242bb902164" # Ubuntu 20.04 LTS // us-east-1
-  instance_type   = "t2.micro"
-  security_groups = [aws_security_group.instances.name]
-  user_data       = <<-EOF
+resource "aws_instance" "ec2_1" {
+  ami               = "ami-011899242bb902164" # Ubuntu 20.04 LTS // us-east-1
+  availability_zone = "us-east-1a"
+  instance_type     = "t2.micro"
+  security_groups   = [aws_security_group.instances.name]
+  user_data         = <<-EOF
               #!/bin/bash
               echo "Hello, World 1" > index.html
               python3 -m http.server 8080 &
               EOF
+  tags = {
+    Name = "EC2 Server 1"
+  }
 }
 
-resource "aws_instance" "instance_2" {
-  ami             = "ami-011899242bb902164" # Ubuntu 20.04 LTS // us-east-1
-  instance_type   = "t2.micro"
-  security_groups = [aws_security_group.instances.name]
-  user_data       = <<-EOF
+resource "aws_instance" "ec2_2" {
+  ami               = "ami-011899242bb902164" # Ubuntu 20.04 LTS // us-east-1
+  availability_zone = "us-east-1a"
+  instance_type     = "t2.micro"
+  security_groups   = [aws_security_group.instances.name]
+  user_data         = <<-EOF
               #!/bin/bash
               echo "Hello, World 2" > index.html
               python3 -m http.server 8080 &
               EOF
+  tags = {
+    Name = "EC2 Server 2"
+  }
 }
 
 resource "aws_s3_bucket" "webdata" {
@@ -159,13 +167,13 @@ resource "aws_lb_target_group" "instances" {
 
 resource "aws_lb_target_group_attachment" "instance_1" {
   target_group_arn = aws_lb_target_group.instances.arn
-  target_id        = aws_instance.instance_1.id
+  target_id        = aws_instance.ec2_1.id
   port             = 8080
 }
 
 resource "aws_lb_target_group_attachment" "instance_2" {
   target_group_arn = aws_lb_target_group.instances.arn
-  target_id        = aws_instance.instance_2.id
+  target_id        = aws_instance.ec2_2.id
   port             = 8080
 }
 
@@ -236,9 +244,9 @@ resource "aws_route53_record" "root" {
 }
 
 resource "aws_db_instance" "db_instance" {
-  allocated_storage   = 20
-  storage_type        = "standard"
-  engine              = "postgres"
+  allocated_storage = 20
+  storage_type      = "standard"
+  engine            = "postgres"
   # engine_version      = "14.1"
   instance_class      = "db.t3.micro"
   name                = "tfraymond_mydb"
